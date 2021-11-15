@@ -182,6 +182,34 @@ More datasets are available at [ABSADatasets](https://github.com/yangheng95/ABSA
 
 You don't have to download the datasets, as the datasets will be downloaded automatically.
 
+
+##quick start - train ATEPC
+
+first, prepare data
+~~~
+python pyabsa/utils/preprocess.py --inpath 'raw_data/data1109.csv' --folder_name './custom_1109'
+~~~
+
+then, run training as below
+~~~python
+#!pip install -U pyabsa
+from pyabsa.functional import ATEPCModelList
+from pyabsa.functional import Trainer, ATEPCTrainer
+from pyabsa.functional import ABSADatasetList
+from pyabsa.functional import ATEPCConfigManager
+
+atepc_config_custom = ATEPCConfigManager.get_atepc_config_chinese()
+atepc_config_custom.num_epoch = 5
+atepc_config_custom.evaluate_begin = 1
+atepc_config_custom.log_step = 100
+atepc_config_custom.model = ATEPCModelList.LCF_ATEPC
+
+aspect_extractor = ATEPCTrainer(config=atepc_config_custom, 
+                                dataset='./custom_1109'
+                                )
+~~~
+
+
 ## 7. Model Support
 
 Except for the following models, we provide a template model involving LCF vec, you can develop your model based on
