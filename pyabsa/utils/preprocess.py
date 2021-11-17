@@ -119,7 +119,6 @@ def convert_to_apc(inpath, dist_fname, flag):
             f1.write(x2 + '\n')
             f1.write(x3 + '\n')
 
-    f1.write("\n")
     f1.close()
 
     print ("process apc finished!")
