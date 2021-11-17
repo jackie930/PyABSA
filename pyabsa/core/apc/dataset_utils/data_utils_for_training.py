@@ -23,6 +23,8 @@ class ABSADataset(Dataset):
 
         lines = load_apc_datasets(fname)
 
+        print ("lines",lines[:10])
+
         if len(lines) % 3 != 0:
             print(colored('ERROR: one or more datasets are corrupted, make sure the number of lines in a dataset should be multiples of 3.', 'red'))
 
