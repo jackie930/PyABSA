@@ -16,9 +16,12 @@ from pyabsa.core.tc.classic.__glove__.models import LSTM
 _classification_config_template = {'model': BERT,
                                    'optimizer': "adam",
                                    'learning_rate': 0.00002,
-                                   'pretrained_bert': "bert-base-uncased",
+                                   'patience': 99999,
+                                   'pretrained_bert': "roberta-base",
+                                   'cache_dataset': True,
                                    'max_seq_len': 80,
                                    'dropout': 0,
+                                   'parallel_mode': 'DataParallel',
                                    'l2reg': 0.0001,
                                    'num_epoch': 10,
                                    'batch_size': 16,
@@ -36,9 +39,12 @@ _classification_config_template = {'model': BERT,
 _classification_config_base = {'model': BERT,
                                'optimizer': "adam",
                                'learning_rate': 0.00002,
-                               'pretrained_bert': "bert-base-uncased",
+                               'pretrained_bert': "roberta-base",
+                               'cache_dataset': True,
                                'max_seq_len': 80,
+                               'patience': 99999,
                                'dropout': 0,
+                               'parallel_mode': 'DataParallel',
                                'l2reg': 0.0001,
                                'num_epoch': 10,
                                'batch_size': 16,
@@ -56,9 +62,12 @@ _classification_config_base = {'model': BERT,
 _classification_config_english = {'model': BERT,
                                   'optimizer': "adam",
                                   'learning_rate': 0.00002,
-                                  'pretrained_bert': "bert-base-uncased",
+                                  'patience': 99999,
+                                  'pretrained_bert': "roberta-base",
+                                  'cache_dataset': True,
                                   'max_seq_len': 80,
                                   'dropout': 0,
+                                  'parallel_mode': 'DataParallel',
                                   'l2reg': 0.0001,
                                   'num_epoch': 10,
                                   'batch_size': 16,
@@ -76,9 +85,11 @@ _classification_config_english = {'model': BERT,
 _classification_config_multilingual = {'model': BERT,
                                        'optimizer': "adam",
                                        'learning_rate': 0.00002,
+                                       'patience': 99999,
                                        'pretrained_bert': "bert-base-multilingual-uncased",
                                        'max_seq_len': 80,
                                        'dropout': 0,
+                                       'parallel_mode': 'DataParallel',
                                        'l2reg': 0.0001,
                                        'num_epoch': 10,
                                        'batch_size': 16,
@@ -96,9 +107,11 @@ _classification_config_multilingual = {'model': BERT,
 _classification_config_chinese = {'model': BERT,
                                   'optimizer': "adam",
                                   'learning_rate': 0.00002,
+                                  'patience': 99999,
                                   'pretrained_bert': "bert-base-chinese",
                                   'max_seq_len': 80,
                                   'dropout': 0,
+                                  'parallel_mode': 'DataParallel',
                                   'l2reg': 0.0001,
                                   'num_epoch': 10,
                                   'batch_size': 16,
@@ -117,6 +130,8 @@ _classification_config_glove = {'model': LSTM,
                                 'optimizer': "adam",
                                 'learning_rate': 0.001,
                                 'max_seq_len': 100,
+                                'patience': 99999,
+                                'parallel_mode': 'DataParallel',
                                 'dropout': 0.1,
                                 'l2reg': 0.0001,
                                 'num_epoch': 20,
@@ -139,8 +154,11 @@ class ClassificationConfigManager(ConfigManager):
         Available Params:  {'model': BERT,
                             'optimizer': "adam",
                             'learning_rate': 0.00002,
-                            'pretrained_bert': "bert-base-uncased",
+                            'pretrained_bert': "roberta-base",
+                            'cache_dataset':True,
                             'max_seq_len': 80,
+                            'parallel_mode': 'DataParallel',
+                            'patience': 99999,
                             'dropout': 0,
                             'l2reg': 0.0001,
                             'num_epoch': 10,
@@ -158,43 +176,43 @@ class ClassificationConfigManager(ConfigManager):
         :param kwargs:
         """
         super().__init__(args, **kwargs)
-    
+
     @staticmethod
-    def set_classification_config(configType:str, newitem:dict):
+    def set_classification_config(configType: str, newitem: dict):
         if isinstance(newitem, dict):
-            if configType=='template':
+            if configType == 'template':
                 _classification_config_template.update(newitem)
-            elif configType=='base':
+            elif configType == 'base':
                 _classification_config_base.update(newitem)
-            elif configType=='english':
+            elif configType == 'english':
                 _classification_config_english.update(newitem)
-            elif configType=='chinese':
+            elif configType == 'chinese':
                 _classification_config_chinese.update(newitem)
-            elif configType=='multilingual':
+            elif configType == 'multilingual':
                 _classification_config_multilingual.update(newitem)
-            elif configType=='glove':
+            elif configType == 'glove':
                 _classification_config_glove.update(newitem)
             else:
                 raise ValueError("Wrong value of config type supplied, please use one from following type: template, base, english, chinese, multilingual, glove")
         else:
-            raise TypeError("Wrong type of new config item supplied, please use dict e.g.{'NewConfig': NewValue}")        
-      
+            raise TypeError("Wrong type of new config item supplied, please use dict e.g.{'NewConfig': NewValue}")
+
     @staticmethod
     def set_classification_config_template(newitem):
         ClassificationConfigManager.set_classification_config('template', newitem)
-    
+
     @staticmethod
     def set_classification_config_base(newitem):
         ClassificationConfigManager.set_classification_config('base', newitem)
-        
+
     @staticmethod
     def set_classification_config_english(newitem):
         ClassificationConfigManager.set_classification_config('english', newitem)
-    
+
     @staticmethod
     def set_classification_config_chinese(newitem):
         ClassificationConfigManager.set_classification_config('chinese', newitem)
-    
+
     @staticmethod
     def set_classification_config_multilingual(newitem):
         ClassificationConfigManager.set_classification_config('multilingual', newitem)
@@ -202,7 +220,7 @@ class ClassificationConfigManager(ConfigManager):
     @staticmethod
     def set_classification_config_glove(newitem):
         ClassificationConfigManager.set_classification_config('glove', newitem)
-        
+
     @staticmethod
     def get_classification_config_template():
         return ClassificationConfigManager(copy.deepcopy(_classification_config_template))

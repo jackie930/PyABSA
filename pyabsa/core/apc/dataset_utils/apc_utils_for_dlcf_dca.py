@@ -43,20 +43,30 @@ def prepare_input_for_dlcf_dca(opt, tokenizer, text_left, text_right, aspect):
 
         aspect_begin = len(tokenizer.tokenize(bos_token + ' ' + text_left))
 
-        if 'dlcf' in opt.model_name or opt.use_syntax_based_SRD:
-            syntactical_dist, max_dist = get_syntax_distance(text_raw, aspect, tokenizer, opt)
-        else:
-            syntactical_dist = None
+        # if 'dlcf' in opt.model_name or opt.use_syntax_based_SRD:
+        #     syntactical_dist, max_dist = get_syntax_distance(text_raw, aspect, tokenizer, opt)
+        # else:
+        #     syntactical_dist = None
+
+        syntactical_dist, max_dist = get_syntax_distance(text_raw, aspect, tokenizer, opt)
 
         dlcf_cdm_vec = get_dynamic_cdm_vec(opt, max_dist, text_bert_indices, aspect_bert_indices,
-                                           aspect_begin, syntactical_dist)
+                                           aspect_begin, syntactical_dist=None)
         dlcf_cdw_vec = get_dynamic_cdw_vec(opt, max_dist, text_bert_indices, aspect_bert_indices,
-                                           aspect_begin, syntactical_dist)
+                                           aspect_begin, syntactical_dist=None)
+
+        dlcfs_cdm_vec = get_dynamic_cdm_vec(opt, max_dist, text_bert_indices, aspect_bert_indices,
+                                            aspect_begin, syntactical_dist)
+        dlcfs_cdw_vec = get_dynamic_cdw_vec(opt, max_dist, text_bert_indices, aspect_bert_indices,
+                                            aspect_begin, syntactical_dist)
+
         depend_vec, depended_vec = calculate_cluster(text_raw, aspect, opt)
 
         inputs = {
             'dlcf_cdm_vec': dlcf_cdm_vec,
             'dlcf_cdw_vec': dlcf_cdw_vec,
+            'dlcfs_cdm_vec': dlcfs_cdm_vec,
+            'dlcfs_cdw_vec': dlcfs_cdw_vec,
             'depend_vec': depend_vec,
             'depended_vec': depended_vec,
         }
@@ -124,18 +134,6 @@ def get_dynamic_cdm_vec(opt, max_dist, bert_spc_indices, aspect_indices, aspect_
             if local_context_begin <= i <= local_context_end:
                 cdm_vec[i] = 1
     return cdm_vec
-
-
-try:
-    nlp = spacy.load("en_core_web_sm")
-except:
-    print('Can not load en_core_web_sm from spacy, try to download it in order to parse syntax tree:',
-          termcolor.colored('\npython -m spacy download en_core_web_sm', 'green'))
-    try:
-        os.system('python -m spacy download en_core_web_sm')
-        nlp = spacy.load("en_core_web_sm")
-    except:
-        raise RuntimeError('Download failed, you can download en_core_web_sm manually.')
 
 
 def calculate_cluster(sentence, aspect, opt):

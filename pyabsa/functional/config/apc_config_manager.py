@@ -18,9 +18,13 @@ from pyabsa.functional.config.config_manager import ConfigManager
 _apc_config_template = {'model': APCModelList.BERT_SPC,
                         'optimizer': "",
                         'learning_rate': 0.00002,
-                        'pretrained_bert': "bert-base-uncased",
+                        'pretrained_bert': "roberta-base",
+                        'cache_dataset': True,
+                        'deep_ensemble': False,
+                        'parallel_mode': 'DataParallel',
                         'use_bert_spc': True,
                         'max_seq_len': 80,
+                        'patience': 99999,
                         'SRD': 3,
                         'dlcf_a': 2,  # the a in dlcf_dca_bert
                         'dca_p': 1,  # the p in dlcf_dca_bert
@@ -51,7 +55,11 @@ _apc_config_template = {'model': APCModelList.BERT_SPC,
 _apc_config_base = {'model': APCModelList.BERT_SPC,
                     'optimizer': "adam",
                     'learning_rate': 0.00002,
-                    'pretrained_bert': "bert-base-uncased",
+                    'pretrained_bert': "roberta-base",
+                    'parallel_mode': 'DataParallel',
+                    'cache_dataset': True,
+                    'deep_ensemble': False,
+                    'patience': 5,
                     'use_bert_spc': True,
                     'max_seq_len': 80,
                     'SRD': 3,
@@ -83,7 +91,11 @@ _apc_config_base = {'model': APCModelList.BERT_SPC,
 _apc_config_english = {'model': APCModelList.BERT_SPC,
                        'optimizer': "adam",
                        'learning_rate': 0.00002,
-                       'pretrained_bert': "bert-base-uncased",
+                       'pretrained_bert': "roberta-base",
+                       'cache_dataset': True,
+                       'deep_ensemble': False,
+                       'parallel_mode': 'DataParallel',
+                       'patience': 99999,
                        'use_bert_spc': True,
                        'max_seq_len': 80,
                        'SRD': 3,
@@ -117,6 +129,10 @@ _apc_config_multilingual = {'model': APCModelList.BERT_SPC,
                             'learning_rate': 0.00002,
                             'pretrained_bert': "bert-base-multilingual-uncased",
                             'use_bert_spc': True,
+                            'cache_dataset': True,
+                            'deep_ensemble': False,
+                            'parallel_mode': 'DataParallel',
+                            'patience': 99999,
                             'max_seq_len': 80,
                             'SRD': 3,
                             'dlcf_a': 2,  # the a in dlcf_dca_bert
@@ -149,7 +165,11 @@ _apc_config_chinese = {'model': APCModelList.BERT_SPC,
                        'optimizer': "adam",
                        'learning_rate': 0.00002,
                        'pretrained_bert': "bert-base-chinese",
+                       'parallel_mode': 'DataParallel',
                        'use_bert_spc': True,
+                       'cache_dataset': True,
+                       'deep_ensemble': False,
+                       'patience': 99999,
                        'max_seq_len': 80,
                        'SRD': 3,
                        'dlcf_a': 2,  # the a in dlcf_dca_bert
@@ -181,6 +201,10 @@ _apc_config_glove = {'model': TNet_LF,
                      'optimizer': "adam",
                      'learning_rate': 0.001,
                      'max_seq_len': 100,
+                     'cache_dataset': True,
+                     'deep_ensemble': False,
+                     'parallel_mode': 'DataParallel',
+                     'patience': 5,
                      'dropout': 0.1,
                      'l2reg': 0.0001,
                      'num_epoch': 20,
@@ -201,6 +225,9 @@ _apc_config_bert_baseline = {'model': TNet_LF_BERT,
                              'optimizer': "adam",
                              'learning_rate': 0.00002,
                              'max_seq_len': 100,
+                             'deep_ensemble': False,
+                             'parallel_mode': 'DataParallel',
+                             'patience': 99999,
                              'dropout': 0.1,
                              'l2reg': 0.0001,
                              'num_epoch': 5,
@@ -226,7 +253,11 @@ class APCConfigManager(ConfigManager):
         Available Params:   {'model': APCModelList.BERT_SPC,
                             'optimizer': "",
                             'learning_rate': 0.00002,
-                            'pretrained_bert': "bert-base-uncased",
+                            'pretrained_bert': "roberta-base",
+                            'cache_dataset': True,
+                            'deep_ensemble': False,
+                            'parallel_mode': 'DataParallel',
+                            'patience': 99999,
                             'use_bert_spc': True,
                             'max_seq_len': 80,
                             'SRD': 3,
@@ -258,57 +289,57 @@ class APCConfigManager(ConfigManager):
         :param kwargs:
         """
         super().__init__(args, **kwargs)
-    
+
     @staticmethod
-    def set_apc_config(configType:str, newitem:dict):
+    def set_apc_config(configType: str, newitem: dict):
         if isinstance(newitem, dict):
-            if configType=='template':
+            if configType == 'template':
                 _apc_config_template.update(newitem)
-            elif configType=='base':
+            elif configType == 'base':
                 _apc_config_base.update(newitem)
-            elif configType=='english':
+            elif configType == 'english':
                 _apc_config_english.update(newitem)
-            elif configType=='chinese':
+            elif configType == 'chinese':
                 _apc_config_chinese.update(newitem)
-            elif configType=='multilingual':
+            elif configType == 'multilingual':
                 _apc_config_multilingual.update(newitem)
-            elif configType=='glove':
-                _apc_config_glove.update(newitem)    
-            elif configType=='bert_baseline':
+            elif configType == 'glove':
+                _apc_config_glove.update(newitem)
+            elif configType == 'bert_baseline':
                 _apc_config_bert_baseline.update(newitem)
             else:
                 raise ValueError("Wrong value of config type supplied, please use one from following type: template, base, english, chinese, multilingual, glove, bert_baseline")
         else:
-            raise TypeError("Wrong type of new config item supplied, please use dict e.g.{'NewConfig': NewValue}")        
-      
+            raise TypeError("Wrong type of new config item supplied, please use dict e.g.{'NewConfig': NewValue}")
+
     @staticmethod
     def set_apc_config_template(newitem):
         APCConfigManager.set_apc_config('template', newitem)
-    
+
     @staticmethod
     def set_apc_config_base(newitem):
         APCConfigManager.set_apc_config('base', newitem)
-        
+
     @staticmethod
     def set_apc_config_english(newitem):
         APCConfigManager.set_apc_config('english', newitem)
-    
+
     @staticmethod
     def set_apc_config_chinese(newitem):
         APCConfigManager.set_apc_config('chinese', newitem)
-    
+
     @staticmethod
     def set_apc_config_multilingual(newitem):
         APCConfigManager.set_apc_config('multilingual', newitem)
-        
+
     @staticmethod
     def set_apc_config_glove(newitem):
         APCConfigManager.set_apc_config('glove', newitem)
-        
+
     @staticmethod
     def set_apc_config_bert_baseline(newitem):
         APCConfigManager.set_apc_config('bert_baseline', newitem)
-    
+
     @staticmethod
     def get_apc_config_template():
         return APCConfigManager(copy.deepcopy(_apc_config_template))

@@ -16,9 +16,11 @@ _atepc_config_template = {'model': LCF_ATEPC,
                           'optimizer': "adamw",
                           'learning_rate': 0.00003,
                           'pretrained_bert': "bert-base-uncased",
+                          'cache_dataset': True,
                           'use_bert_spc': False,
                           'max_seq_len': 80,
                           'SRD': 3,
+                          'parallel_mode': 'DataParallel',
                           'use_syntax_based_SRD': False,
                           'lcf': "cdw",
                           'window': "lr",  # unused yet
@@ -32,6 +34,7 @@ _atepc_config_template = {'model': LCF_ATEPC,
                           'hidden_dim': 768,
                           'polarities_dim': 2,
                           'log_step': 50,
+                          'patience': 99999,
                           'gradient_accumulation_steps': 1,
                           'dynamic_truncate': True,
                           'srd_alignment': True,  # for srd_alignment
@@ -42,9 +45,12 @@ _atepc_config_base = {'model': LCF_ATEPC,
                       'optimizer': "adamw",
                       'learning_rate': 0.00003,
                       'pretrained_bert': "bert-base-uncased",
+                      'cache_dataset': True,
                       'use_bert_spc': False,
                       'max_seq_len': 80,
+                      'patience': 5,
                       'SRD': 3,
+                      'parallel_mode': 'DataParallel',
                       'use_syntax_based_SRD': False,
                       'lcf': "cdw",
                       'window': "lr",  # unused yet
@@ -68,9 +74,11 @@ _atepc_config_english = {'model': LCF_ATEPC,
                          'optimizer': "adamw",
                          'learning_rate': 0.00002,
                          'pretrained_bert': "bert-base-uncased",
+                         'cache_dataset': True,
                          'use_bert_spc': False,
                          'max_seq_len': 80,
                          'SRD': 3,
+                         'parallel_mode': 'DataParallel',
                          'use_syntax_based_SRD': False,
                          'lcf': "cdw",
                          'window': "lr",
@@ -84,6 +92,7 @@ _atepc_config_english = {'model': LCF_ATEPC,
                          'hidden_dim': 768,
                          'polarities_dim': 2,
                          'log_step': 50,
+                         'patience': 5,
                          'gradient_accumulation_steps': 1,
                          'dynamic_truncate': True,
                          'srd_alignment': True,  # for srd_alignment
@@ -97,6 +106,7 @@ _atepc_config_chinese = {'model': LCF_ATEPC,
                          'use_bert_spc': False,
                          'max_seq_len': 80,
                          'SRD': 3,
+                         'parallel_mode': 'DataParallel',
                          'use_syntax_based_SRD': False,
                          'lcf': "cdw",
                          'window': "lr",
@@ -110,6 +120,7 @@ _atepc_config_chinese = {'model': LCF_ATEPC,
                          'hidden_dim': 768,
                          'polarities_dim': 2,
                          'log_step': 50,
+                         'patience': 5,
                          'gradient_accumulation_steps': 1,
                          'dynamic_truncate': True,
                          'srd_alignment': True,  # for srd_alignment
@@ -123,6 +134,7 @@ _atepc_config_multilingual = {'model': LCF_ATEPC,
                               'use_bert_spc': False,
                               'max_seq_len': 80,
                               'SRD': 3,
+                              'parallel_mode': 'DataParallel',
                               'use_syntax_based_SRD': False,
                               'lcf': "cdw",
                               'window': "lr",
@@ -136,6 +148,7 @@ _atepc_config_multilingual = {'model': LCF_ATEPC,
                               'hidden_dim': 768,
                               'polarities_dim': 2,
                               'log_step': 50,
+                              'patience': 99999,
                               'gradient_accumulation_steps': 1,
                               'dynamic_truncate': True,
                               'srd_alignment': True,  # for srd_alignment
@@ -150,9 +163,11 @@ class ATEPCConfigManager(ConfigManager):
                           'optimizer': "adamw",
                           'learning_rate': 0.00003,
                           'pretrained_bert': "bert-base-uncased",
+                          'cache_dataset': True,
                           'use_bert_spc': False,
                           'max_seq_len': 80,
                           'SRD': 3,
+                          'parallel_mode': 'DataParallel',
                           'use_syntax_based_SRD': False,
                           'lcf': "cdw",
                           'window': "lr",  # unused yet
@@ -166,6 +181,7 @@ class ATEPCConfigManager(ConfigManager):
                           'hidden_dim': 768,
                           'polarities_dim': 2,
                           'log_step': 50,
+                          'patience': 99999,
                           'gradient_accumulation_steps': 1,
                           'dynamic_truncate': True,
                           'srd_alignment': True,  # for srd_alignment
@@ -175,45 +191,45 @@ class ATEPCConfigManager(ConfigManager):
         :param kwargs:
         """
         super().__init__(args, **kwargs)
-    
+
     @staticmethod
-    def set_atepc_config(configType:str, newitem:dict):
+    def set_atepc_config(configType: str, newitem: dict):
         if isinstance(newitem, dict):
-            if configType=='template':
+            if configType == 'template':
                 _atepc_config_template.update(newitem)
-            elif configType=='base':
+            elif configType == 'base':
                 _atepc_config_base.update(newitem)
-            elif configType=='english':
+            elif configType == 'english':
                 _atepc_config_english.update(newitem)
-            elif configType=='chinese':
+            elif configType == 'chinese':
                 _atepc_config_chinese.update(newitem)
-            elif configType=='multilingual':
+            elif configType == 'multilingual':
                 _atepc_config_multilingual.update(newitem)
             else:
                 raise ValueError("Wrong value of config type supplied, please use one from following type: template, base, english, chinese, multilingual")
         else:
-            raise TypeError("Wrong type of new config item supplied, please use dict e.g.{'NewConfig': NewValue}")        
-      
+            raise TypeError("Wrong type of new config item supplied, please use dict e.g.{'NewConfig': NewValue}")
+
     @staticmethod
     def set_atepc_config_template(newitem):
         ATEPCConfigManager.set_atepc_config('template', newitem)
-    
+
     @staticmethod
     def set_atepc_config_base(newitem):
         ATEPCConfigManager.set_atepc_config('base', newitem)
-        
+
     @staticmethod
     def set_atepc_config_english(newitem):
         ATEPCConfigManager.set_atepc_config('english', newitem)
-    
+
     @staticmethod
     def set_atepc_config_chinese(newitem):
         ATEPCConfigManager.set_atepc_config('chinese', newitem)
-    
+
     @staticmethod
     def set_atepc_config_multilingual(newitem):
         ATEPCConfigManager.set_atepc_config('multilingual', newitem)
-        
+
     @staticmethod
     def get_atepc_config_template():
         return ATEPCConfigManager(copy.deepcopy(_atepc_config_template))

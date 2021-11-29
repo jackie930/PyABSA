@@ -34,7 +34,8 @@ def save_args(config, save_path):
 def print_args(config, logger=None, mode=0):
     activated_args = []
     default_args = []
-    for arg in config.args:
+    args = [key for key in sorted(config.args.keys())]
+    for arg in args:
         if isinstance(arg, str) and os.path.exists(arg):
             arg = os.path.basename(arg)
         if config.args_call_count[arg]:
@@ -90,7 +91,9 @@ def check_and_fix_labels(label_set, label_name, all_data, opt):
 
 
 def get_device(auto_device):
-    if isinstance(auto_device, str):
+    if isinstance(auto_device, str) and auto_device == 'allcuda':
+        device = 'cuda'
+    elif isinstance(auto_device, str):
         device = auto_device
     elif isinstance(auto_device, bool):
         device = auto_cuda() if auto_device else 'cpu'
@@ -120,7 +123,10 @@ def resume_from_checkpoint(trainer, from_checkpoint_path):
                     print(colored('Warning, the checkpoint was not trained using {} from param_dict'.format(trainer.opt.model.__name__)), 'red')
                 trainer.model = torch.load(model_path[0])
             if state_dict_path:
-                trainer.model.load_state_dict(torch.load(state_dict_path[0]))
+                if torch.cuda.device_count() > 1:
+                    trainer.model.module.load_state_dict(torch.load(state_dict_path[0]))
+                else:
+                    trainer.model.load_state_dict(torch.load(state_dict_path[0]))
                 trainer.model.opt = trainer.opt
                 trainer.model.to(trainer.opt.device)
             else:
@@ -130,15 +136,21 @@ def resume_from_checkpoint(trainer, from_checkpoint_path):
         print('Checkpoint loaded!')
 
 
+class TransformerConnectionError(ValueError):
+    def __init__(self):
+        pass
+
+
 def retry(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        while True:
+        count = 5
+        while count:
             try:
                 return f(*args, **kwargs)
-            except Exception as e:
-                print('Catch exception: {} in {}, retry soon if you dont terminate process...'.format(e, f))
+            except (TransformerConnectionError, requests.exceptions.ConnectionError):
                 time.sleep(5)
+                count -= 1
 
     return decorated
 

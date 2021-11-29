@@ -11,18 +11,33 @@
 [![total clones per week](https://raw.githubusercontent.com/yangheng95/PyABSA/traffic/total_clones_per_week.svg)](https://github.com/yangheng95/PyABSA/tree/traffic#-total-traffic-data-badge)
 
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
-[![All Contributors](https://img.shields.io/badge/all_contributors-5-orange.svg?style=flat-square)](#contributors-)
+[![All Contributors](https://img.shields.io/badge/all_contributors-6-orange.svg?style=flat-square)](#contributors-)
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 > Aspect Term Extraction (ATE) & Aspect Polarity Classification (APC)
-> 
+>
 > Fast & Low Memory requirement & Enhanced implementation of Local Context Focus
 >
 > Build from LC-ABSA / LCF-ABSA / LCF-BERT and LCF-ATEPC.
-> 
-> PyTorch Implementations (CPU & CUDA supported). 
+>
+> PyTorch Implementations (CPU & CUDA supported).
 
 If you are willing to support PyABSA project, please star this repository as your contribution.
- 
+
+## Quick Review the Performance of our Package
+### APC model leaderboard
+
+|         Models       | Laptop14 (acc) |  Rest14 (acc) | Rest15 (acc) | Rest16 (acc) |
+| :------------------: | :------------: | :-----------: |:------------:|:------------:|
+| LSA-S(CDW)|    84.80      |      87.95    |    88.15     |    93.98     | 
+| LSA-S(CDM)|    83.70      |      89.01    |   88.89      |    94.47     | 
+| LSA-T(CDW)|    84.01      |      88.66    |    86.67     |    93.98     | 
+| LSA-T(CDM)|    84.01       |      88.48    |   87.78     |    93.82     | 
+
+**Results are based on roberta-base (V1.3.5), which is different from our original [paper](https://arxiv.org/pdf/2110.08604.pdf) using bert-base-uncased. We are working on update our experimental results of our paper**
+please see more in [APC leaderboard](https://github.com/yangheng95/PyABSA/blob/release/demos/aspect_polarity_classification/leaderboard.md)
+
+ATEPC leaderboard update is pending due to resoruce limitaion, if you can do it please contact me. 
+
 ## 1. Package Overview
 
 <table>
@@ -55,11 +70,15 @@ If you are willing to support PyABSA project, please star this repository as you
 ## 2. Read the Important Tips
 
 ### 2.1 Use your custom dataset
-PyABSA use the [FindFile](https://github.com/yangheng95/findfile) to find the target file which means you can specify
-  a dataset/checkpoint by keywords instead of using absolute path. e.g.,
 
-- First, refer to [ABSADatasets](https://github.com/yangheng95/ABSADatasets) to prepare your dataset into acceptable format.
-- You can PR to contribute your dataset and use it like `ABDADatasets.your_dataset`, or use it by dataset absolute / relative path, or dataset dir name
+PyABSA use the [FindFile](https://github.com/yangheng95/findfile) to find the target file which means you can specify a
+dataset/checkpoint by keywords instead of using absolute path. e.g.,
+
+- First, refer to [ABSADatasets](https://github.com/yangheng95/ABSADatasets) to prepare your dataset into acceptable
+  format.
+- You can PR to contribute your dataset and use it like `ABDADatasets.your_dataset`, or use it by dataset absolute /
+  relative path, or dataset dir name
+
 ```bash
 dataset = './laptop' # relative path
 dataset = 'ABSOLUTE_PATH/laptop/' # absolute path
@@ -70,8 +89,9 @@ checkpoint = 'lcfs' # checkpoint assignment is similar to above methods
 ```
 
 ### 2.2 Auto select the free cuda for training & inference
+
 PyABSA use the [AutoCUDA](https://github.com/yangheng95/autocuda) to support automatic cuda assignment, but you can
-  still set a preferred device.
+still set a preferred device.
 
 ```python3
 auto_device=True  # to auto assign a cuda device for training / inference
@@ -80,16 +100,19 @@ auto_device='cuda:1'  # to specify a preferred device
 auto_device='cpu'  # to specify a preferred device
 ```
 
-### 2.3 Flexible labels than others 
+### 2.3 Flexible labels than others
+
 PyABSA encourages you to use string labels instead of numbers. e.g., sentiment labels = {negative, positive, unknown}
+
 - What labels you labeled in the dataset, what labels will be output in inference
 - The version information of PyABSA is also available in the output while loading checkpoints training args.
 - You can train a model using multiple datasets with same sentiment labels, and you can even contribute and define a
   combination of datasets [here](./pyabsa/functional/dataset/dataset_manager.py#L32)!
 
-
 ### 2.4 Get/Set config options
-The default spaCy english model is en_core_web_sm, if you didn't install it, PyABSA will download/install it automatically.
+
+The default spaCy english model is en_core_web_sm, if you didn't install it, PyABSA will download/install it
+automatically.
 
 If you would like to change english model (or other pre-defined options), you can get/set as following:
 
@@ -114,9 +137,14 @@ nlp = configure_spacy_model(APCConfigManager.get_apc_config_english())
 ```
 
 ## 3. Quick Start
+
 - Create a new python environment and install pyabsa
-- ind a target demo script ([ATEPC](https://github.com/yangheng95/PyABSA/tree/release/demos/aspect_term_extraction), [APC](https://github.com/yangheng95/PyABSA/tree/release/demos/aspect_polarity_classification), [Text Classification](https://github.com/yangheng95/PyABSA/tree/release/demos/text_classification)) to prepare your work
-- Format your dataset referring to [ABSADatasets](https://github.com/yangheng95/ABSADatasets) or use public dataset in ABSADatasets
+- ind a target demo script ([ATEPC](https://github.com/yangheng95/PyABSA/tree/release/demos/aspect_term_extraction)
+  , [APC](https://github.com/yangheng95/PyABSA/tree/release/demos/aspect_polarity_classification)
+  , [Text Classification](https://github.com/yangheng95/PyABSA/tree/release/demos/text_classification)) to prepare your
+  work
+- Format your dataset referring to [ABSADatasets](https://github.com/yangheng95/ABSADatasets) or use public dataset in
+  ABSADatasets
 - Init your config to specify Model, Dataset, hyper-parameters
 - Training your model and get checkpoints
 - Share your checkpoint and dataset
@@ -140,6 +168,7 @@ git clone https://github.com/yangheng95/PyABSA --depth=1
 cd PyABSA 
 python setup.py install
 ```
+
 ## 5. Learning to Use Checkpoint
 
 ### 5.1 How to get available checkpoints from Google Drive
@@ -151,10 +180,13 @@ available checkpoints, you can use the following code and load the checkpoint by
 from pyabsa import available_checkpoints
 checkpoint_map = available_checkpoints()  # show available checkpoints of PyABSA of current version 
 ```
+
 If you can not access to Google Drive, you can download our checkpoints and load the unzipped checkpoint manually.
-如果您无法访问谷歌Drive，您可以从[此处 (提取码：ABSA)](https://pan.baidu.com/s/1oKkO7RJ6Ob9vY6flnJk3Sg) 下载我们预训练的模型，并加载模型（百度云上的checkpoints更新较慢，版本较为滞后，请注意使用对应版本的PyABSA）。
+如果您无法访问谷歌Drive，您可以从[此处 (提取码：ABSA)](https://pan.baidu.com/s/1oKkO7RJ6Ob9vY6flnJk3Sg)
+下载我们预训练的模型，并加载模型（百度云上的checkpoints更新较慢，版本较为滞后，请注意使用对应版本的PyABSA）。
 
 ## 5.2 How to use our pretrained checkpoints on your dataset
+
 - [Aspect terms extraction & polarity classification](https://github.com/yangheng95/PyABSA/blob/release/demos/aspect_term_extraction/extract_aspects.py)
 - [Aspect polarity classification](https://github.com/yangheng95/PyABSA/blob/release/demos/aspect_polarity_classification/sentiment_inference.py)
 
@@ -230,8 +262,8 @@ or [LCF-ATEPC](pyabsa/core/atepc/models/lcf_template_atepc.py) model template.
 
 #### Bert-based APC models
 
-1. [SLIDE-LCF-BERT](pyabsa/core/apc/models/slide_lcf_bert.py) (Faster & Performs Better than LCF/LCFS-BERT)
-2. [SLIDE-LCFS-BERT](pyabsa/core/apc/models/slide_lcfs_bert.py) (Faster & Performs Better than LCF/LCFS-BERT)
+1. [SLIDE-LCF-BERT](pyabsa/core/apc/models/lsa_t.py) (Faster & Performs Better than LCF/LCFS-BERT)
+2. [SLIDE-LCFS-BERT](pyabsa/core/apc/models/lsa_s.py) (Faster & Performs Better than LCF/LCFS-BERT)
 3. [LCF-BERT](pyabsa/core/apc/models/lcf_bert.py) (Reimplemented & Enhanced)
 4. [LCFS-BERT](pyabsa/core/apc/models/lcfs_bert.py) (Reimplemented & Enhanced)
 5. [FAST-LCF-BERT](pyabsa/core/apc/models/fast_lcf_bert.py) (Faster with slightly performance loss)
@@ -321,6 +353,7 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
     <td align="center"><a href="https://github.com/brightgems"><img src="https://avatars.githubusercontent.com/u/8269060?v=4?s=100" width="100px;" alt=""/><br /><sub><b>brtgpy</b></sub></a><br /><a href="#data-brightgems" title="Data">🔣</a></td>
     <td align="center"><a href="https://github.com/FrancisDacian"><img src="https://avatars.githubusercontent.com/u/24215706?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Ryan</b></sub></a><br /><a href="https://github.com/yangheng95/PyABSA/commits?author=FrancisDacian" title="Code">💻</a></td>
     <td align="center"><a href="https://github.com/lpfy"><img src="https://avatars.githubusercontent.com/u/4684417?v=4?s=100" width="100px;" alt=""/><br /><sub><b>lpfy</b></sub></a><br /><a href="https://github.com/yangheng95/PyABSA/commits?author=lpfy" title="Code">💻</a></td>
+    <td align="center"><a href="https://github.com/jackie930"><img src="https://avatars.githubusercontent.com/u/41107450?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Jackie Liu</b></sub></a><br /><a href="https://github.com/yangheng95/PyABSA/commits?author=jackie930" title="Code">💻</a></td>
   </tr>
 </table>
 

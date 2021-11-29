@@ -8,7 +8,7 @@ import copy
 import os
 
 import findfile
-from findfile import find_dir
+import torch
 
 from pyabsa import __version__
 
@@ -25,17 +25,21 @@ from pyabsa.core.tc.training.classifier_trainer import train4classification
 from pyabsa.functional.config.apc_config_manager import APCConfigManager
 from pyabsa.functional.config.atepc_config_manager import ATEPCConfigManager
 from pyabsa.functional.config.classification_config_manager import ClassificationConfigManager
-from pyabsa.functional.dataset import ABSADatasetList
 
 from pyabsa.utils.logger import get_logger
 
 from pyabsa.utils.pyabsa_utils import get_device
 
+import warnings
+
+warnings.filterwarnings('once')
+
 
 def init_config(config, auto_device):
     config.device, config.device_name = get_device(auto_device)
-
-    config.model_name = config.model.__name__.lower()
+    config.auto_device = auto_device
+    config.device = 'cuda' if auto_device == 'all_cuda' else config.device
+    config.model_name = config.model.__name__.lower() if not isinstance(config.model, list) else 'ensemble'
     config.Version = __version__
 
     if 'use_syntax_based_SRD' in config:
@@ -63,13 +67,28 @@ class Trainer:
                                      "checkpoint_save_mode=2" to save the whole model,
                                      "checkpoint_save_mode=3" to save the fine-tuned BERT,
                                      otherwise avoid to save checkpoint but return the trained model after training
-        :param auto_device: True or False, otherwise 'cuda', 'cpu' works
+        :param auto_device: True or False, otherwise 'allcuda', 'cuda:1', 'cpu' works
 
         """
+        if auto_device == 'all_cuda':
+            if config.parallel_mode == 'DataParallel':
+                print("use DataParallel for multi-cuda training!")
+            else:
+                print("use DistributedDataParallel for multi-cuda training!")
+                os.environ['RANK'] = '0' if not os.environ.get('RANK', None) else os.environ.get('RANK', None)
+                os.environ['WORLD_SIZE'] = '1' if not os.environ.get('WORLD_SIZE', None) else os.environ.get('WORLD_SIZE', None)
+                os.environ['MASTER_ADDR'] = '127.0.0.1' if not os.environ.get('MASTER_ADDR', None) else os.environ.get('MASTER_ADDR', None)
+                os.environ['MASTER_PORT'] = '9235' if not os.environ.get('MASTER_PORT', None) else os.environ.get('MASTER_PORT', None)
+                try:
+                    torch.distributed.init_process_group(backend='nccl')
+                except Exception as e:
+                    print('Ignore exception: {}'.format(e))
+
         if isinstance(config, APCConfigManager):
             self.train_func = train4apc
             self.model_class = SentimentClassifier
             self.task = 'apc'
+
         elif isinstance(config, ATEPCConfigManager):
             self.train_func = train4atepc
             self.model_class = AspectExtractor
@@ -89,6 +108,7 @@ class Trainer:
             self.config.dataset_name = custom_dataset.dataset_name
         self.dataset_file = detect_dataset(dataset, task=self.task)
         self.config.dataset_file = self.dataset_file
+
         self.config = init_config(self.config, auto_device)
 
         self.from_checkpoint = findfile.find_dir(os.getcwd(), from_checkpoint) if from_checkpoint else ''

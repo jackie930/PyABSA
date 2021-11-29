@@ -20,7 +20,7 @@ from torch.utils.data import (DataLoader, RandomSampler, SequentialSampler, Tens
 from transformers import AutoTokenizer, AutoModel
 
 from pyabsa.utils.file_utils import save_model
-from pyabsa.utils.pyabsa_utils import print_args, resume_from_checkpoint, retry
+from pyabsa.utils.pyabsa_utils import print_args, resume_from_checkpoint, retry, TransformerConnectionError
 from ..dataset_utils.data_utils_for_training import ATEPCProcessor, convert_examples_to_features
 
 
@@ -53,9 +53,12 @@ class Instructor:
             'adam': torch.optim.Adam,
             'adamw': torch.optim.AdamW
         }
+        try:
+            self.tokenizer = AutoTokenizer.from_pretrained(self.opt.pretrained_bert, do_lower_case='uncased' in self.opt.pretrained_bert)
+            bert_base_model = AutoModel.from_pretrained(self.opt.pretrained_bert)
+        except ValueError:
+            raise TransformerConnectionError()
 
-        self.tokenizer = AutoTokenizer.from_pretrained(self.opt.pretrained_bert, do_lower_case=True)
-        bert_base_model = AutoModel.from_pretrained(self.opt.pretrained_bert)
         processor = ATEPCProcessor(self.tokenizer)
         self.label_list = processor.get_labels()
         self.opt.num_labels = len(self.label_list) + 1
@@ -106,7 +109,25 @@ class Instructor:
         # init the model behind the convert_examples_to_features function in case of updating polarities_dim
 
         self.model = self.opt.model(bert_base_model, opt=self.opt)
-        self.model.to(self.opt.device)
+
+        # use DataParallel for training if device count larger than 1
+        if torch.cuda.device_count() > 1 and self.opt.auto_device == 'allcuda':
+            self.opt.device = torch.device(self.opt.device)
+            self.model.to(self.opt.device)
+            if self.opt.parallel_mode == 'DataParallel':
+                self.model = torch.nn.parallel.DataParallel(self.model)
+            else:
+                self.model = torch.nn.parallel.DistributedDataParallel(module=self.model, find_unused_parameters=True)
+
+            self.opt.device = 'cuda:{}'.format(self.model.output_device)
+        else:
+            self.model.to(self.opt.device)
+
+        self.opt.device = torch.device(self.opt.device)
+        if self.opt.device.type == 'cuda':
+            self.logger.info(
+                "cuda memory allocated:{}".format(torch.cuda.memory_allocated(device=self.opt.device)))
+
         param_optimizer = list(self.model.named_parameters())
         no_decay = ['bias', 'LayerNorm.bias', 'LayerNorm.weight']
         self.optimizer_grouped_parameters = [
@@ -122,7 +143,9 @@ class Instructor:
         print_args(self.opt, self.logger)
 
     def run(self):
-
+        if 'patience' not in self.opt.args or not self.opt.patience:
+            self.opt.patience = len(self.train_examples) / self.opt.batch_size / self.opt.log_step * self.opt.patience
+        patience = self.opt.patience
         self.logger.info("***** Running training for Aspect Term Extraction *****")
         self.logger.info("  Num examples = %d", len(self.train_examples))
         self.logger.info("  Batch size = %d", self.opt.batch_size)
@@ -140,9 +163,17 @@ class Instructor:
             iterator = tqdm.tqdm(self.train_dataloader)
             for step, batch in enumerate(iterator):
                 self.model.train()
-                batch = tuple(t.to(self.opt.device) for t in batch)
                 input_ids_spc, segment_ids, input_mask, label_ids, polarity, \
                 valid_ids, l_mask, lcf_cdm_vec, lcf_cdw_vec = batch
+                input_ids_spc = input_ids_spc.to(self.opt.device)
+                segment_ids = segment_ids.to(self.opt.device)
+                input_mask = input_mask.to(self.opt.device)
+                label_ids = label_ids.to(self.opt.device)
+                polarity = polarity.to(self.opt.device)
+                valid_ids = valid_ids.to(self.opt.device)
+                l_mask = l_mask.to(self.opt.device)
+                lcf_cdm_vec = lcf_cdm_vec.to(self.opt.device)
+                lcf_cdw_vec = lcf_cdw_vec.to(self.opt.device)
                 loss_ate, loss_apc = self.model(input_ids_spc,
                                                 token_type_ids=segment_ids,
                                                 attention_mask=input_mask,
@@ -153,9 +184,14 @@ class Instructor:
                                                 lcf_cdm_vec=lcf_cdm_vec,
                                                 lcf_cdw_vec=lcf_cdw_vec
                                                 )
+                # for multi-gpu, average loss by gpu instance number
+                if torch.cuda.device_count() > 1 and self.opt.auto_device == 'allcuda':
+                    loss_ate, loss_apc = loss_ate.mean(), loss_apc.mean()
                 # loss_ate = loss_ate.item() / (loss_ate.item() + loss_apc.item()) * loss_ate
                 # loss_apc = loss_apc.item() / (loss_ate.item() + loss_apc.item()) * loss_apc
-                loss = 3 * loss_ate + loss_apc
+                # loss = loss_ate + loss_apc
+                loss = loss_ate + loss_apc  # the optimal weight of loss may be different according to dataset
+                iterator.update()
                 sum_loss += loss.item()
                 loss.backward()
                 nb_tr_examples += input_ids_spc.size(0)
@@ -178,7 +214,7 @@ class Instructor:
                         if apc_result['apc_test_acc'] > self.opt.max_test_metrics['max_apc_test_acc'] or \
                                 apc_result['apc_test_f1'] > self.opt.max_test_metrics['max_apc_test_f1'] or \
                                 ate_result > self.opt.max_test_metrics['max_ate_test_f1']:
-
+                            patience = self.opt.patience
                             if apc_result['apc_test_acc'] > self.opt.max_test_metrics['max_apc_test_acc']:
                                 self.opt.max_test_metrics['max_apc_test_acc'] = apc_result['apc_test_acc']
                             if apc_result['apc_test_f1'] > self.opt.max_test_metrics['max_apc_test_f1']:
@@ -204,7 +240,8 @@ class Instructor:
                                 )
 
                                 save_model(self.opt, self.model, self.tokenizer, save_path)
-
+                        else:
+                            patience -= 1
                         current_apc_test_acc = apc_result['apc_test_acc']
                         current_apc_test_f1 = apc_result['apc_test_f1']
                         current_ate_test_f1 = round(ate_result, 2)
@@ -226,11 +263,13 @@ class Instructor:
                             postfix += 'ATE_F1: {}(max:{})'.format(current_ate_test_f1, self.opt.max_test_metrics[
                                 'max_ate_test_f1'])
                     else:
-                        postfix = 'Epoch:{} | No evaluation until epoch:{}'.format(epoch, self.opt.evaluate_begin)
+                        postfix = 'Epoch:{} | Loss: {} | No evaluation until epoch:{}'.format(epoch, loss.item(), self.opt.evaluate_begin)
 
                     iterator.postfix = postfix
                     iterator.refresh()
 
+            if patience < 0:
+                break
         self.logger.info('-------------------------------------Training Summary-------------------------------------')
         self.logger.info(
             '  Max APC Acc: {:.5f} Max APC F1: {:.5f} Max ATE F1: {:.5f} Accumulated Loss: {}'.format(
@@ -273,28 +312,38 @@ class Instructor:
         for i, batch in enumerate(self.eval_dataloader):
             input_ids_spc, segment_ids, input_mask, label_ids, polarity, \
             valid_ids, l_mask, lcf_cdm_vec, lcf_cdw_vec = batch
-
             input_ids_spc = input_ids_spc.to(self.opt.device)
-            input_mask = input_mask.to(self.opt.device)
             segment_ids = segment_ids.to(self.opt.device)
-            valid_ids = valid_ids.to(self.opt.device)
+            input_mask = input_mask.to(self.opt.device)
             label_ids = label_ids.to(self.opt.device)
             polarity = polarity.to(self.opt.device)
+            valid_ids = valid_ids.to(self.opt.device)
             l_mask = l_mask.to(self.opt.device)
             lcf_cdm_vec = lcf_cdm_vec.to(self.opt.device)
             lcf_cdw_vec = lcf_cdw_vec.to(self.opt.device)
-
             with torch.no_grad():
-                ate_logits, apc_logits = self.model(input_ids_spc,
-                                                    token_type_ids=segment_ids,
-                                                    attention_mask=input_mask,
-                                                    labels=None,
-                                                    polarity=polarity,
-                                                    valid_ids=valid_ids,
-                                                    attention_mask_label=l_mask,
-                                                    lcf_cdm_vec=lcf_cdm_vec,
-                                                    lcf_cdw_vec=lcf_cdw_vec
-                                                    )
+                if torch.cuda.device_count() > 1 and self.opt.auto_device == 'allcuda':
+                    ate_logits, apc_logits = self.model.module(input_ids_spc,
+                                                               token_type_ids=segment_ids,
+                                                               attention_mask=input_mask,
+                                                               labels=None,
+                                                               polarity=polarity,
+                                                               valid_ids=valid_ids,
+                                                               attention_mask_label=l_mask,
+                                                               lcf_cdm_vec=lcf_cdm_vec,
+                                                               lcf_cdw_vec=lcf_cdw_vec
+                                                               )
+                else:
+                    ate_logits, apc_logits = self.model(input_ids_spc,
+                                                        token_type_ids=segment_ids,
+                                                        attention_mask=input_mask,
+                                                        labels=None,
+                                                        polarity=polarity,
+                                                        valid_ids=valid_ids,
+                                                        attention_mask_label=l_mask,
+                                                        lcf_cdm_vec=lcf_cdm_vec,
+                                                        lcf_cdw_vec=lcf_cdw_vec
+                                                        )
             if eval_APC:
                 n_test_correct += (torch.argmax(apc_logits, -1) == polarity).sum().item()
                 n_test_total += len(polarity)
@@ -308,7 +357,10 @@ class Instructor:
 
             if eval_ATE:
                 if not self.opt.use_bert_spc:
-                    label_ids = self.model.get_batch_token_labels_bert_base_indices(label_ids)
+                    if torch.cuda.device_count() > 1 and self.opt.auto_device == 'allcuda':
+                        label_ids = self.model.module.get_batch_token_labels_bert_base_indices(label_ids)
+                    else:
+                        label_ids = self.model.get_batch_token_labels_bert_base_indices(label_ids)
                 ate_logits = torch.argmax(F.log_softmax(ate_logits, dim=2), dim=2)
                 ate_logits = ate_logits.detach().cpu().numpy()
                 label_ids = label_ids.to('cpu').numpy()
@@ -343,7 +395,7 @@ class Instructor:
         return apc_result, ate_result
 
 
-# @retry
+@retry
 def train4atepc(opt, from_checkpoint_path, logger):
     # in case of handling ConnectionError exception
     trainer = Instructor(opt, logger)
