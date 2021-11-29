@@ -6,41 +6,80 @@
 import os
 import pandas as pd
 import argparse
+import emoji
+import re
 from sklearn.model_selection import train_test_split
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--inpath", type=str, required=True,default='./raw_data/data1.csv')
-parser.add_argument("--folder_name",type=str,required=False,default='./custom')
-parser.add_argument("--task",type=str,required=False,default='aptepc')
+parser.add_argument("--inpath", type=str, required=True, default='./raw_data/data1.csv')
+parser.add_argument("--folder_name", type=str, required=False, default='./custom')
+parser.add_argument("--task", type=str, required=False, default='aptepc')
 args = parser.parse_args()
+
 
 def convert(text, labels):
     # convert label to list
-    labels = eval(labels)
-    tags = ['O'] * len(text)
-    sentiment = ['-999'] * len(text)
+    try:
+        labels = eval(labels)
+        tags = ['O'] * len(text)
+        sentiment = ['-999'] * len(text)
 
-    for j in range(len(labels)):
-        label = labels[j]
-        sentiment_key = labels[j][3]
+        for j in range(len(labels)):
+            label = labels[j]
+            sentiment_key = labels[j][3]
 
-        if sentiment_key == '正':
-            sentiment_value = 'Positive'
-        else:
-            sentiment_value = 'Negative'
+            if sentiment_key == '正':
+                sentiment_value = 'Positive'
+            elif sentiment_key == '负':
+                sentiment_value = 'Negative'
+            else:
+                sentiment_value = 'Others'
 
-        tags[label[4][0]] = 'B-ASP'
-        sentiment[label[4][0]] = sentiment_value
+            tags[label[4][0]] = 'B-ASP'
+            sentiment[label[4][0]] = sentiment_value
 
-        k = label[4][0] + 1
-        while k < label[4][1]:
-            tags[k] = 'I-ASP'
-            sentiment[k] = sentiment_value
+            k = label[4][0] + 1
+            while k < label[4][1]:
+                tags[k] = 'I-ASP'
+                sentiment[k] = sentiment_value
 
-            k += 1
+                k += 1
+        return text, tags, sentiment
+    except:
+        print ("labels", labels)
+        print ("text", text)
 
-    return text, tags, sentiment
+def convert_tag(text, labels):
+    # convert label to list
+    try:
+        labels = eval(labels)
+        tags = ['O'] * len(text)
+        sentiment = ['-999'] * len(text)
 
+        for j in range(len(labels)):
+            label = labels[j]
+            sentiment_key = labels[j][3]
+
+            if sentiment_key == '正':
+                sentiment_value = 'Positive'
+            elif sentiment_key == '负':
+                sentiment_value = 'Negative'
+            else:
+                sentiment_value = 'Others'
+
+            tags[label[4][0]] = 'B-'+label[1]
+            sentiment[label[4][0]] = sentiment_value
+
+            k = label[4][0] + 1
+            while k < label[4][1]:
+                tags[k] = 'I-'+label[1]
+                sentiment[k] = sentiment_value
+
+                k += 1
+        return text, tags, sentiment
+    except:
+        print ("labels", labels)
+        print ("text", text)
 
 def convert_sentiment(sentiment_key):
     if sentiment_key == '正':
@@ -66,6 +105,16 @@ def convert_apc(text, label):
 
     return str1_list, str2_list, str3_list
 
+
+def filter_emoji(desstr, restr=''):
+    # 过滤表情
+    try:
+        co = re.compile(u'[\U00010000-\U0010ffff]')
+    except re.error:
+        co = re.compile(u'[\uD800-\uDBFF][\uDC00-\uDFFF]')
+    return co.sub(restr, desstr)
+
+
 def convert_to_atepc(inpath, dist_fname, flag):
     # 写之前，先检验文件是否存在，存在就删掉
     if os.path.exists(dist_fname):
@@ -73,20 +122,71 @@ def convert_to_atepc(inpath, dist_fname, flag):
     f1 = open(dist_fname, 'w', encoding='utf8')
 
     data = pd.read_csv(inpath)
+    data.columns = ['text', 'tag_sentiment_list']
+
+    # preprocess for emoji
+    data['text'] = data['text'].map(lambda x: filter_emoji(x, restr='xx'))
+
+    # 只保留review的长度小于600的
+    data = data[data['text'].str.len() <= 600]
+
     # train test split
     x_train, x_test = train_test_split(data, test_size=0.2, random_state=42)
 
     if flag == 'train':
-        data_res = x_train.iloc[:,:].reset_index()
+        data_res = x_train.iloc[:, :].reset_index()
     else:
-        data_res = x_test.iloc[:,:].reset_index()
-    #print (data_res.head())
+        data_res = x_test.iloc[:, :].reset_index()
+    # print (data_res.head())
     for i in range(len(data_res)):
         text, label = data_res['text'][i], data_res['tag_sentiment_list'][i]
         text, tags, sentiment = convert(text, label)
 
         for word, tag, sen in zip(text, tags, sentiment):
-            if word not in ['，', '。', ' ', '\xa0', '\u2006','\u3000','\u2002','\u2003','\u2005','\x0c','\u2028','\u2009','\u200a']:
+            if word not in ['，', '。', ' ', '\xa0', '\u2006', '\u3000', '\u2002', '\u2003', '\u2005', '\x0c', '\u2028',
+                            '\u2009', '\u200a']:
+                f1.write(word + ' ' + tag + ' ' + sen + '\n')
+            else:
+                f1.write("\n")
+
+        f1.write("\n")
+    f1.close()
+    print ("process atepc finished!")
+
+def convert_to_atepc_tag(inpath, dist_fname, flag):
+    # 写之前，先检验文件是否存在，存在就删掉
+    if os.path.exists(dist_fname):
+        os.remove(dist_fname)
+    f1 = open(dist_fname, 'w', encoding='utf8')
+
+    data = pd.read_csv(inpath)
+    data.columns = ['text', 'tag_sentiment_list']
+
+    # preprocess for emoji
+    data['text'] = data['text'].map(lambda x: filter_emoji(x, restr='xx'))
+
+    # drop id list not able to process
+    # print (data.iloc[8832,:])
+    # data = data.drop([8832])
+
+    # 只保留review的长度小于600的
+    data = data[data['text'].str.len() <= 600]
+
+    # train test split
+    x_train, x_test = train_test_split(data, test_size=0.2, random_state=42)
+
+    if flag == 'train':
+        data_res = x_train.iloc[:, :].reset_index()
+    else:
+        data_res = x_test.iloc[:, :].reset_index()
+    # print (data_res.head())
+    for i in range(len(data_res)):
+        text, label = data_res['text'][i], data_res['tag_sentiment_list'][i]
+        text, tags, sentiment = convert(text, label)
+
+        for word, tag, sen in zip(text, tags, sentiment):
+            if word not in ['，', '。', ' ', '\xa0', '\u2006', '\u3000', '\u2002', '\u2003', '\u2005', '\x0c', '\u2028',
+                            '\u2009', '\u200a']:
                 f1.write(word + ' ' + tag + ' ' + sen + '\n')
             else:
                 f1.write("\n")
@@ -106,10 +206,10 @@ def convert_to_apc(inpath, dist_fname, flag):
     x_train, x_test = train_test_split(data, test_size=0.2, random_state=42)
 
     if flag == 'train':
-        data_res = x_train.iloc[:,:].reset_index()
+        data_res = x_train.iloc[:, :].reset_index()
     else:
-        data_res = x_test.iloc[:,:].reset_index()
-    #print (data_res.head())
+        data_res = x_test.iloc[:, :].reset_index()
+    # print (data_res.head())
     for i in range(len(data_res)):
         text, label = data_res['text'][i], data_res['tag_sentiment_list'][i]
         str1_list, str2_list, str3_list = convert_apc(text, label)
@@ -123,19 +223,21 @@ def convert_to_apc(inpath, dist_fname, flag):
 
     print ("process apc finished!")
 
+
 def main(inpath, folder_name, task):
     if not os.path.exists(folder_name):
         os.makedirs(folder_name)
 
     if task == 'aptepc':
         # get folder name
+        print ("start process for an aptepc task")
         folder_name_prefix = folder_name.split('/')[-1]
-        dist_train_fname = os.path.join(folder_name_prefix,folder_name_prefix+'.train.txt.atepc')
-        dist_test_fname = os.path.join(folder_name_prefix,folder_name_prefix+'.test.txt.atepc')
-        #process train
+        dist_train_fname = os.path.join(folder_name_prefix, folder_name_prefix + '.train.txt.atepc')
+        dist_test_fname = os.path.join(folder_name_prefix, folder_name_prefix + '.test.txt.atepc')
+        # process train
         convert_to_atepc(inpath, dist_train_fname, 'train')
         print ("<<< finish training data preprocess")
-        #process test
+        # process test
         convert_to_atepc(inpath, dist_test_fname, 'test')
         print ("<<< finish test data preprocess")
     elif task == 'apc':
@@ -149,6 +251,18 @@ def main(inpath, folder_name, task):
         # process test
         convert_to_apc(inpath, dist_test_fname, 'test')
         print ("<<< finish test data preprocess")
+    elif task == 'aptepc-tag':
+        # get folder name
+        print ("start process for an aptepc tag task")
+        folder_name_prefix = folder_name.split('/')[-1]
+        dist_train_fname = os.path.join(folder_name_prefix, folder_name_prefix + '.train.txt.atepc')
+        dist_test_fname = os.path.join(folder_name_prefix, folder_name_prefix + '.test.txt.atepc')
+        # process train
+        convert_to_atepc_tag(inpath, dist_train_fname, 'train')
+        print ("<<< finish training data preprocess")
+        # process test
+        convert_to_atepc_tag(inpath, dist_test_fname, 'test')
+        print ("<<< finish test data preprocess")
 
 
-main(args.inpath, args.folder_name,args.task)
+main(args.inpath, args.folder_name, args.task)
